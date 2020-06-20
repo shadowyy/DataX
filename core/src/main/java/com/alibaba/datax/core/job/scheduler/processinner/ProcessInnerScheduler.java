@@ -7,6 +7,7 @@ import com.alibaba.datax.core.statistics.container.communicator.AbstractContaine
 import com.alibaba.datax.core.taskgroup.TaskGroupContainer;
 import com.alibaba.datax.core.taskgroup.runner.TaskGroupContainerRunner;
 import com.alibaba.datax.core.util.FrameworkErrorCode;
+import com.alibaba.datax.dataxservice.face.domain.enums.State;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -22,15 +23,27 @@ public abstract class ProcessInnerScheduler extends AbstractScheduler {
 
     @Override
     public void startAllTaskGroup(List<Configuration> configurations) {
-        this.taskGroupContainerExecutorService = Executors
-                .newFixedThreadPool(configurations.size());
+        //this.taskGroupContainerExecutorService = Executors
+        //        .newFixedThreadPool(configurations.size());
+        //
+        //for (Configuration taskGroupConfiguration : configurations) {
+        //    TaskGroupContainerRunner taskGroupContainerRunner = newTaskGroupContainerRunner(taskGroupConfiguration);
+        //    this.taskGroupContainerExecutorService.execute(taskGroupContainerRunner);
+        //}
+        //
+        //this.taskGroupContainerExecutorService.shutdown();
 
         for (Configuration taskGroupConfiguration : configurations) {
-            TaskGroupContainerRunner taskGroupContainerRunner = newTaskGroupContainerRunner(taskGroupConfiguration);
-            this.taskGroupContainerExecutorService.execute(taskGroupContainerRunner);
+            TaskGroupContainer taskGroupContainer = new TaskGroupContainer(taskGroupConfiguration);
+            try {
+                taskGroupContainer.start();
+                //State.SUCCEEDED;
+            } catch (Throwable e) {
+                //this.state = State.FAILED;
+                throw DataXException.asDataXException(FrameworkErrorCode.RUNTIME_ERROR, e);
+            }
         }
 
-        this.taskGroupContainerExecutorService.shutdown();
     }
 
     @Override

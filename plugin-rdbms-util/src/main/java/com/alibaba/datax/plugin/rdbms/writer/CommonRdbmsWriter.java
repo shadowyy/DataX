@@ -119,7 +119,7 @@ public class CommonRdbmsWriter {
                             StringUtils.join(renderedPreSqls, ";"), jdbcUrl);
 
                     WriterUtil.executeSqls(conn, renderedPreSqls, jdbcUrl, dataBaseType);
-                    DBUtil.closeDBResources(null, null, conn);
+                    DBUtil.closeDBResources( conn);
                 }
             }
 
@@ -160,7 +160,7 @@ public class CommonRdbmsWriter {
                             "Begin to execute postSqls:[{}]. context info:{}.",
                             StringUtils.join(renderedPostSqls, ";"), jdbcUrl);
                     WriterUtil.executeSqls(conn, renderedPostSqls, jdbcUrl, dataBaseType);
-                    DBUtil.closeDBResources(null, null, conn);
+                    DBUtil.closeDBResources( conn);
                 }
             }
         }
@@ -256,7 +256,7 @@ public class CommonRdbmsWriter {
                 WriterUtil.executeSqls(connection, this.preSqls, BASIC_MESSAGE, dataBaseType);
             }
 
-            DBUtil.closeDBResources(null, null, connection);
+            DBUtil.closeDBResources(connection);
         }
 
         public void startWriteWithConnection(RecordReceiver recordReceiver, TaskPluginCollector taskPluginCollector, Connection connection) {
@@ -304,7 +304,7 @@ public class CommonRdbmsWriter {
             } finally {
                 writeBuffer.clear();
                 bufferBytes = 0;
-                DBUtil.closeDBResources(null, null, connection);
+                DBUtil.closeDBResources(connection);
             }
         }
 
@@ -335,18 +335,18 @@ public class CommonRdbmsWriter {
             LOG.info("Begin to execute postSqls:[{}]. context info:{}.",
                     StringUtils.join(this.postSqls, ";"), BASIC_MESSAGE);
             WriterUtil.executeSqls(connection, this.postSqls, BASIC_MESSAGE, dataBaseType);
-            DBUtil.closeDBResources(null, null, connection);
+            DBUtil.closeDBResources( connection);
         }
 
         public void destroy(Configuration writerSliceConfig) {
         }
 
-        protected void doBatchInsert(Connection connection, List<Record> buffer)
+        protected void doBatchInsert(Connection conn, List<Record> buffer)
                 throws SQLException {
             PreparedStatement preparedStatement = null;
             try {
-                connection.setAutoCommit(false);
-                preparedStatement = connection
+                conn.setAutoCommit(false);
+                preparedStatement = conn
                         .prepareStatement(this.writeRecordSql);
 
                 for (Record record : buffer) {
@@ -355,24 +355,24 @@ public class CommonRdbmsWriter {
                     preparedStatement.addBatch();
                 }
                 preparedStatement.executeBatch();
-                connection.commit();
+                conn.commit();
             } catch (SQLException e) {
                 LOG.warn("回滚此次写入, 采用每次写入一行方式提交. 因为:" + e.getMessage());
-                connection.rollback();
-                doOneInsert(connection, buffer);
+                conn.rollback();
+                doOneInsert(conn, buffer);
             } catch (Exception e) {
                 throw DataXException.asDataXException(
                         DBUtilErrorCode.WRITE_DATA_ERROR, e);
             } finally {
-                DBUtil.closeDBResources(preparedStatement, null);
+                DBUtil.closeDBResources(preparedStatement);
             }
         }
 
-        protected void doOneInsert(Connection connection, List<Record> buffer) {
+        protected void doOneInsert(Connection conn, List<Record> buffer) {
             PreparedStatement preparedStatement = null;
             try {
-                connection.setAutoCommit(true);
-                preparedStatement = connection
+                conn.setAutoCommit(true);
+                preparedStatement = conn
                         .prepareStatement(this.writeRecordSql);
 
                 for (Record record : buffer) {
@@ -393,7 +393,7 @@ public class CommonRdbmsWriter {
                 throw DataXException.asDataXException(
                         DBUtilErrorCode.WRITE_DATA_ERROR, e);
             } finally {
-                DBUtil.closeDBResources(preparedStatement, null);
+                DBUtil.closeDBResources(preparedStatement);
             }
         }
 

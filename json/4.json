@@ -35,6 +35,7 @@
                         "username": "root",
                         "password": "root",
                         "column": [
+                            "id",
                             "str_type",
                             "long_type",
                             "date_type",
@@ -43,9 +44,6 @@
                         ],
                         "session": [
                             "set session sql_mode='ANSI'"
-                        ],
-                        "preSql": [
-                            "delete from tmp"
                         ],
                         "connection": [
                             {

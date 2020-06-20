@@ -73,7 +73,7 @@ public class PreCheckTask implements Callable<Boolean>{
                 } catch (Exception e) {
                     throw RdbmsException.asQueryException(this.dataBaseType, e, querySql, table, userName);
                 } finally {
-                    DBUtil.closeDBResources(rs, null, null);
+                    DBUtil.closeDBResources(rs);
                 }
             /*verify splitPK*/
                 try{
@@ -93,7 +93,7 @@ public class PreCheckTask implements Callable<Boolean>{
                 }
             }
         } finally {
-            DBUtil.closeDBResources(null, conn);
+            DBUtil.closeDBResources(conn);
         }
         return true;
     }

@@ -83,7 +83,7 @@ public class TransformerRegistry {
         if (!each.equals(funName)) {
             LOG.warn(String.format("transformer(%s) name not match transformer.json config name[%s], will ignore json's name, path = %s, config = %s", each, funName, transformerPath, transformerConfiguration.beautify()));
         }
-        JarLoader jarLoader = new JarLoader(new String[]{transformerPath});
+        JarLoader jarLoader = new JarLoader(transformerPath);
 
         try {
             Class<?> transformerClass = jarLoader.loadClass(className);

@@ -219,7 +219,7 @@ public class CommonRdbmsReader {
             }catch (Exception e) {
                 throw RdbmsException.asQueryException(this.dataBaseType, e, querySql, table, username);
             } finally {
-                DBUtil.closeDBResources(null, conn);
+                DBUtil.closeDBResources(conn);
             }
         }
 

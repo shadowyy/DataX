@@ -11,13 +11,18 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 提供Jar隔离的加载机制，会把传入的路径、及其子路径、以及路径中的jar文件加入到class path。
  */
 public class JarLoader extends URLClassLoader {
-    public JarLoader(String[] paths) {
-        this(paths, JarLoader.class.getClassLoader());
+    //private static final Map<String, JarLoader> MAP = new ConcurrentHashMap<>();
+
+    public JarLoader(String path) {
+        this(new String[]{path}, JarLoader.class.getClassLoader());
+        //MAP.put(path, this);
     }
 
     public JarLoader(String[] paths, ClassLoader parent) {
@@ -31,7 +36,7 @@ public class JarLoader extends URLClassLoader {
         List<String> dirs = new ArrayList<String>();
         for (String path : paths) {
             dirs.add(path);
-            JarLoader.collectDirs(path, dirs);
+            collectDirs(path, dirs);
         }
 
         List<URL> urls = new ArrayList<URL>();
@@ -70,7 +75,7 @@ public class JarLoader extends URLClassLoader {
         Validate.isTrue(jarPath.exists() && jarPath.isDirectory(),
                 "jar包路径必须存在且为目录.");
 
-		/* set filter */
+        /* set filter */
         FileFilter jarFilter = new FileFilter() {
             @Override
             public boolean accept(File pathname) {
@@ -78,13 +83,13 @@ public class JarLoader extends URLClassLoader {
             }
         };
 
-		/* iterate all jar */
+        /* iterate all jar */
         File[] allJars = new File(path).listFiles(jarFilter);
-        List<URL> jarURLs = new ArrayList<URL>(allJars.length);
+        List<URL> jarURLs = new ArrayList<>(allJars.length);
 
-        for (int i = 0; i < allJars.length; i++) {
+        for (File allJar : allJars) {
             try {
-                jarURLs.add(allJars[i].toURI().toURL());
+                jarURLs.add(allJar.toURI().toURL());
             } catch (Exception e) {
                 throw DataXException.asDataXException(
                         FrameworkErrorCode.PLUGIN_INIT_ERROR,

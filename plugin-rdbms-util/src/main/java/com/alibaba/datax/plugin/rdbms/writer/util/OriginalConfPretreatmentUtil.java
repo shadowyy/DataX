@@ -10,6 +10,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -91,7 +92,12 @@ public final class OriginalConfPretreatmentUtil {
         originalConfig.set(Constant.TABLE_NUMBER_MARK, tableNum);
     }
 
-    public static void dealColumnConf(Configuration originalConfig, ConnectionFactory connectionFactory, String oneTable) {
+    public static void dealColumnConf(Configuration originalConfig) {
+        String jdbcUrl = originalConfig.getString(String.format("%s[0].%s", Constant.CONN_MARK, Key.JDBC_URL));
+        String userName = originalConfig.getString(Key.USERNAME);
+        String password = originalConfig.getString(Key.PASSWORD);
+        String oneTable = originalConfig.getString(String.format("%s[0].%s[0]", Constant.CONN_MARK, Key.TABLE));
+
         List<String> userConfiguredColumns = originalConfig.getList(Key.COLUMN, String.class);
         if (null == userConfiguredColumns || userConfiguredColumns.isEmpty()) {
             throw DataXException.asDataXException(DBUtilErrorCode.ILLEGAL_VALUE,
@@ -99,14 +105,14 @@ public final class OriginalConfPretreatmentUtil {
         } else {
             boolean isPreCheck = originalConfig.getBool(Key.DRYRUN, false);
             List<String> allColumns;
+            Connection connection;
             if (isPreCheck){
-                allColumns = DBUtil.getTableColumnsByConn(DATABASE_TYPE,connectionFactory.getConnecttionWithoutRetry(), oneTable, connectionFactory.getConnectionInfo());
+                connection = DBUtil.getConnectionWithoutRetry(DATABASE_TYPE, jdbcUrl, userName, password);
             }else{
-                allColumns = DBUtil.getTableColumnsByConn(DATABASE_TYPE,connectionFactory.getConnecttion(), oneTable, connectionFactory.getConnectionInfo());
+                connection = DBUtil.getConnection(DATABASE_TYPE, jdbcUrl, userName, password);
             }
-
-            LOG.info("table:[{}] all columns:[\n{}\n].", oneTable,
-                    StringUtils.join(allColumns, ","));
+            allColumns = DBUtil.getTableColumnsByConn(DATABASE_TYPE, connection, oneTable);
+            LOG.info("table:[{}] all columns:[\n{}\n].", oneTable, StringUtils.join(allColumns, ","));
 
             if (1 == userConfiguredColumns.size() && "*".equals(userConfiguredColumns.get(0))) {
                 LOG.warn("您的配置文件中的列配置信息存在风险. 因为您配置的写入数据库表的列为*，当您的表字段个数、类型有变动时，可能影响任务正确性甚至会运行出错。请检查您的配置并作出修改.");
@@ -122,23 +128,22 @@ public final class OriginalConfPretreatmentUtil {
                 ListUtil.makeSureNoValueDuplicate(userConfiguredColumns, false);
 
                 // 检查列是否都为数据库表中正确的列（通过执行一次 select column from table 进行判断）
-                DBUtil.getColumnMetaData(connectionFactory.getConnecttion(), oneTable,StringUtils.join(userConfiguredColumns, ","));
+                Connection conn = DBUtil.getConnection(DATABASE_TYPE, jdbcUrl, userName, password);
+                DBUtil.getColumnMetaData(conn, oneTable,StringUtils.join(userConfiguredColumns, ","));
+                DBUtil.closeDBResources(conn);
             }
         }
     }
 
-    public static void dealColumnConf(Configuration originalConfig) {
-        String jdbcUrl = originalConfig.getString(String.format("%s[0].%s",
-                Constant.CONN_MARK, Key.JDBC_URL));
-
-        String username = originalConfig.getString(Key.USERNAME);
-        String password = originalConfig.getString(Key.PASSWORD);
-        String oneTable = originalConfig.getString(String.format(
-                "%s[0].%s[0]", Constant.CONN_MARK, Key.TABLE));
-
-        JdbcConnectionFactory jdbcConnectionFactory = new JdbcConnectionFactory(DATABASE_TYPE, jdbcUrl, username, password);
-        dealColumnConf(originalConfig, jdbcConnectionFactory, oneTable);
-    }
+    //public static void dealColumnConf(Configuration originalConfig) {
+    //    String jdbcUrl = originalConfig.getString(String.format("%s[0].%s",
+    //            Constant.CONN_MARK, Key.JDBC_URL));
+    //
+    //    String username = originalConfig.getString(Key.USERNAME);
+    //    String password = originalConfig.getString(Key.PASSWORD);
+    //    String oneTable = originalConfig.getString(String.format("%s[0].%s[0]", Constant.CONN_MARK, Key.TABLE));
+    //    dealColumnConf(originalConfig, oneTable);
+    //}
 
     public static void dealWriteMode(Configuration originalConfig, DataBaseType dataBaseType) {
         List<String> columns = originalConfig.getList(Key.COLUMN, String.class);

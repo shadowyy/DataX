@@ -12,8 +12,8 @@ import com.alibaba.datax.core.taskgroup.runner.WriterRunner;
 import com.alibaba.datax.core.util.FrameworkErrorCode;
 import org.apache.commons.lang3.StringUtils;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Created by jingxing on 14-8-24.
@@ -44,12 +44,14 @@ public class LoadUtil {
      * 所有插件配置放置在pluginRegisterCenter中，为区别reader、transformer和writer，还能区别
      * 具体pluginName，故使用pluginType.pluginName作为key放置在该map中
      */
-    private static Configuration pluginRegisterCenter;
+    //private static Configuration pluginRegisterCenter;
+
+    private static final ThreadLocal<Configuration> threadLocal = new ThreadLocal<>();
 
     /**
      * jarLoader的缓冲
      */
-    private static Map<String, JarLoader> jarLoaderCenter = new HashMap<String, JarLoader>();
+    private static final Map<String, JarLoader> JAR_LOADER_MAP = new ConcurrentHashMap<>();
 
     /**
      * 设置pluginConfigs，方便后面插件来获取
@@ -57,7 +59,8 @@ public class LoadUtil {
      * @param pluginConfigs
      */
     public static void bind(Configuration pluginConfigs) {
-        pluginRegisterCenter = pluginConfigs;
+        //pluginRegisterCenter = pluginConfigs;
+        threadLocal.set(pluginConfigs);
     }
 
     private static String generatePluginKey(PluginType pluginType,
@@ -68,7 +71,7 @@ public class LoadUtil {
 
     private static Configuration getPluginConf(PluginType pluginType,
                                                String pluginName) {
-        Configuration pluginConf = pluginRegisterCenter
+        Configuration pluginConf = threadLocal.get()
                 .getConfiguration(generatePluginKey(pluginType, pluginName));
 
         if (null == pluginConf) {
@@ -167,9 +170,9 @@ public class LoadUtil {
             PluginType pluginType, String pluginName,
             ContainerType pluginRunType) {
         Configuration pluginConf = getPluginConf(pluginType, pluginName);
-        JarLoader jarLoader = LoadUtil.getJarLoader(pluginType, pluginName);
+        ClassLoader classLoader = getJarLoader(pluginType, pluginName);
         try {
-            return (Class<? extends AbstractPlugin>) jarLoader
+            return (Class<? extends AbstractPlugin>) classLoader
                     .loadClass(pluginConf.getString("class") + "$"
                             + pluginRunType.value());
         } catch (Exception e) {
@@ -177,11 +180,11 @@ public class LoadUtil {
         }
     }
 
-    public static synchronized JarLoader getJarLoader(PluginType pluginType,
-                                                      String pluginName) {
+    public static synchronized ClassLoader getJarLoader(PluginType pluginType,
+                                                        String pluginName) {
         Configuration pluginConf = getPluginConf(pluginType, pluginName);
 
-        JarLoader jarLoader = jarLoaderCenter.get(generatePluginKey(pluginType,
+        JarLoader jarLoader = JAR_LOADER_MAP.get(generatePluginKey(pluginType,
                 pluginName));
         if (null == jarLoader) {
             String pluginPath = pluginConf.getString("path");
@@ -192,11 +195,9 @@ public class LoadUtil {
                                 "%s插件[%s]路径非法!",
                                 pluginType, pluginName));
             }
-            jarLoader = new JarLoader(new String[]{pluginPath});
-            jarLoaderCenter.put(generatePluginKey(pluginType, pluginName),
-                    jarLoader);
+            jarLoader = new JarLoader(pluginPath);
+            JAR_LOADER_MAP.put(generatePluginKey(pluginType, pluginName), jarLoader);
         }
-
         return jarLoader;
     }
 }

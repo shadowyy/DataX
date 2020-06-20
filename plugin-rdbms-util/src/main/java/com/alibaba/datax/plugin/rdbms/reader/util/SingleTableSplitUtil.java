@@ -150,7 +150,7 @@ public class SingleTableSplitUtil {
 
         Connection conn = DBUtil.getConnection(DATABASE_TYPE, jdbcURL, username, password);
         Pair<Object, Object> minMaxPK = checkSplitPk(conn, pkRangeSQL, fetchSize, table, username, configuration);
-        DBUtil.closeDBResources(null, null, conn);
+        DBUtil.closeDBResources(conn);
         return minMaxPK;
     }
 
@@ -219,7 +219,7 @@ public class SingleTableSplitUtil {
         } catch (Exception e) {
             throw DataXException.asDataXException(DBUtilErrorCode.ILLEGAL_SPLIT_PK, "DataX尝试切分表发生错误. 请检查您的配置并作出修改.", e);
         } finally {
-            DBUtil.closeDBResources(rs, null, null);
+            DBUtil.closeDBResources(rs);
         }
 
         return minMaxPK;
@@ -344,7 +344,7 @@ public class SingleTableSplitUtil {
                     DBUtilErrorCode.ILLEGAL_SPLIT_PK,
                     "DataX尝试切分表发生错误. 请检查您的配置并作出修改.", e);
         } finally {
-            DBUtil.closeDBResources(rs, null, null);
+            DBUtil.closeDBResources(rs);
         }
         LOG.debug(JSON.toJSONString(splitedRange));
         List<String> rangeSql = new ArrayList<String>();

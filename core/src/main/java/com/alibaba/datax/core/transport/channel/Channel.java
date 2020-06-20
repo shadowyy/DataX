@@ -216,8 +216,7 @@ public abstract class Channel {
             }
 
             // 休眠时间取较大值
-            long sleepTime = byteLimitSleepTime < recordLimitSleepTime ?
-                    recordLimitSleepTime : byteLimitSleepTime;
+            long sleepTime = Math.max(byteLimitSleepTime, recordLimitSleepTime);
             if (sleepTime > 0) {
                 try {
                     Thread.sleep(sleepTime);

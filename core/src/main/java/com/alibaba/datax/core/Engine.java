@@ -8,10 +8,7 @@ import com.alibaba.datax.common.statistics.VMInfo;
 import com.alibaba.datax.common.util.Configuration;
 import com.alibaba.datax.core.job.JobContainer;
 import com.alibaba.datax.core.taskgroup.TaskGroupContainer;
-import com.alibaba.datax.core.util.ConfigParser;
-import com.alibaba.datax.core.util.ConfigurationValidate;
-import com.alibaba.datax.core.util.ExceptionTracker;
-import com.alibaba.datax.core.util.FrameworkErrorCode;
+import com.alibaba.datax.core.util.*;
 import com.alibaba.datax.core.util.container.CoreConstant;
 import com.alibaba.datax.core.util.container.LoadUtil;
 import org.apache.commons.cli.BasicParser;
@@ -21,16 +18,23 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
  * Engine是DataX入口类，该类负责初始化Job或者Task的运行容器，并运行插件的Job或者Task逻辑
  */
-public class Engine {
+public class Engine implements Runnable {
     private static final Logger LOG = LoggerFactory.getLogger(Engine.class);
 
     private static String RUNTIME_MODE;
@@ -49,7 +53,7 @@ public class Engine {
         boolean isJob = !("taskGroup".equalsIgnoreCase(allConf
                 .getString(CoreConstant.DATAX_CORE_CONTAINER_MODEL)));
         //JobContainer会在schedule后再行进行设置和调整值
-        int channelNumber =0;
+        int channelNumber = 0;
         AbstractContainer container;
         long instanceId;
         int taskGroupId = -1;
@@ -74,21 +78,21 @@ public class Engine {
         boolean perfReportEnable = allConf.getBool(CoreConstant.DATAX_CORE_REPORT_DATAX_PERFLOG, true);
 
         //standlone模式的datax shell任务不进行汇报
-        if(instanceId == -1){
+        if (instanceId == -1) {
             perfReportEnable = false;
         }
 
         int priority = 0;
         try {
             priority = Integer.parseInt(System.getenv("SKYNET_PRIORITY"));
-        }catch (NumberFormatException e){
-            LOG.warn("prioriy set to 0, because NumberFormatException, the value is: "+System.getProperty("PROIORY"));
+        } catch (NumberFormatException e) {
+            LOG.warn("prioriy set to 0, because NumberFormatException, the value is: " + System.getProperty("PROIORY"));
         }
 
         Configuration jobInfoConfig = allConf.getConfiguration(CoreConstant.DATAX_JOB_JOBINFO);
         //初始化PerfTrace
         PerfTrace perfTrace = PerfTrace.getInstance(isJob, instanceId, taskGroupId, priority, traceEnable);
-        perfTrace.setJobInfo(jobInfoConfig,perfReportEnable,channelNumber);
+        perfTrace.setJobInfo(jobInfoConfig, perfReportEnable, channelNumber);
         container.start();
 
     }
@@ -102,12 +106,12 @@ public class Engine {
 
         filterSensitiveConfiguration(jobContent);
 
-        jobConfWithSetting.set("content",jobContent);
+        jobConfWithSetting.set("content", jobContent);
 
         return jobConfWithSetting.beautify();
     }
 
-    public static Configuration filterSensitiveConfiguration(Configuration configuration){
+    public static Configuration filterSensitiveConfiguration(Configuration configuration) {
         Set<String> keys = configuration.getKeys();
         for (final String key : keys) {
             boolean isSensitive = StringUtils.endsWithIgnoreCase(key, "password")
@@ -119,14 +123,14 @@ public class Engine {
         return configuration;
     }
 
-    public static void entry(final String[] args) throws Throwable {
+    public static void entry(Engine engine) throws Throwable {
         Options options = new Options();
         options.addOption("job", true, "Job config.");
         options.addOption("jobid", true, "Job unique id.");
         options.addOption("mode", true, "Job runtime mode.");
 
         BasicParser parser = new BasicParser();
-        CommandLine cl = parser.parse(options, args);
+        CommandLine cl = parser.parse(options, engine.args);
 
         String jobPath = cl.getOptionValue("job");
 
@@ -167,15 +171,14 @@ public class Engine {
         LOG.debug(configuration.toJSON());
 
         ConfigurationValidate.doValidate(configuration);
-        Engine engine = new Engine();
         engine.start(configuration);
     }
 
 
     /**
      * -1 表示未能解析到 jobId
-     *
-     *  only for dsc & ds & datax 3 update
+     * <p>
+     * only for dsc & ds & datax 3 update
      */
     private static long parseJobIdFromUrl(List<String> patternStringList, String url) {
         long result = -1;
@@ -198,10 +201,16 @@ public class Engine {
         return -1;
     }
 
-    public static void main(String[] args) throws Exception {
+    private final String[] args;
+
+    public Engine(String[] args) {
+        this.args = args;
+    }
+
+    public void main0() {
         int exitCode = 0;
         try {
-            Engine.entry(args);
+            Engine.entry(this);
         } catch (Throwable e) {
             exitCode = 1;
             LOG.error("\n\n经DataX智能分析,该任务最可能的错误原因是:\n" + ExceptionTracker.trace(e));
@@ -214,10 +223,47 @@ public class Engine {
                     exitCode = tempErrorCode.toExitValue();
                 }
             }
-
-            System.exit(exitCode);
+            //System.exit(exitCode);
         }
-        System.exit(exitCode);
+        //System.exit(exitCode);
+    }
+
+    @Override
+    public void run() {
+        main0();
+    }
+
+    public static void main(String[] args) throws Exception {
+        Options options = new Options();
+        options.addOption("jp", true, "");
+        BasicParser parser = new IgnoreUnrecognizedOptionParser(true);
+        CommandLine cl = parser.parse(options, args);
+
+        String jobPath = cl.getOptionValue("jp");
+
+        //List<String> list = new ArrayList<>();
+        //for (int i = 0; i < 10000; i++) {
+        //    list.add("C:\\Users\\Administrator\\data\\code\\java\\github\\DataX\\json\\4.json");
+        //}
+        //String[] arr = {"-mode", "standalone", "-jobid", "1", "-job"};
+
+        long startTime = System.nanoTime();
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(20, 10000, 10, TimeUnit.MINUTES, new LinkedBlockingQueue<>());
+        Files.walk(Paths.get(jobPath)).filter(Files::isRegularFile).map(Path::toFile).forEach(f -> {
+            String[] arr = {"-mode", "standalone", "-jobid", "0", "-job", f.getAbsolutePath()};
+            executor.execute(new Thread(new Engine(arr)));
+        });
+        //for (String s : list) {
+        //    String[] arr = {"-mode", "standalone", "-jobid", String.valueOf(i), "-job", s};
+        //    Thread thread = new Thread(new Engine(arr));
+        //    executor.execute(thread);
+        //    i++;
+        //}
+        executor.shutdown();
+        executor.awaitTermination(Long.MAX_VALUE, TimeUnit.MINUTES);//等待直到所有任务完成
+        System.out.println("execute in " + (System.nanoTime() - startTime) / (1000000000) + " s");
+
+        //Thread.sleep(100000);
     }
 
 }

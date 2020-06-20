@@ -104,7 +104,7 @@ public final class WriterUtil {
         } catch (Exception e) {
             throw RdbmsException.asQueryException(dataBaseType,e,currentSql,null,null);
         } finally {
-            DBUtil.closeDBResources(null, stmt, null);
+            DBUtil.closeDBResources(stmt);
         }
     }
 

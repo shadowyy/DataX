@@ -124,7 +124,7 @@ public class JobContainer extends AbstractContainer {
                 this.postHandle();
                 LOG.info("DataX jobId [{}] completed successfully.", this.jobId);
 
-                this.invokeHooks();
+                //this.invokeHooks();//TODO 去掉hook
             }
         } catch (Throwable e) {
             LOG.error("Exception when job run", e);
@@ -460,8 +460,7 @@ public class JobContainer extends AbstractContainer {
         }
 
         // 取较小值
-        this.needChannelNumber = needChannelNumberByByte < needChannelNumberByRecord ?
-                needChannelNumberByByte : needChannelNumberByRecord;
+        this.needChannelNumber = Math.min(needChannelNumberByByte, needChannelNumberByRecord);
 
         // 如果从byte或record上设置了needChannelNumber则退出
         if (this.needChannelNumber < Integer.MAX_VALUE) {
@@ -965,12 +964,12 @@ public class JobContainer extends AbstractContainer {
         errorLimit.checkPercentageLimit(communication);
     }
 
-    /**
-     * 调用外部hook
-     */
-    private void invokeHooks() {
-        Communication comm = super.getContainerCommunicator().collect();
-        HookInvoker invoker = new HookInvoker(CoreConstant.DATAX_HOME + "/hook", configuration, comm.getCounter());
-        invoker.invokeAll();
-    }
+    ///**
+    // * 调用外部hook
+    // */
+    //private void invokeHooks() {
+    //    Communication comm = super.getContainerCommunicator().collect();
+    //    HookInvoker invoker = new HookInvoker(CoreConstant.DATAX_HOME + "/hook", configuration, comm.getCounter());
+    //    invoker.invokeAll();
+    //}
 }

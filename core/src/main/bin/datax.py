@@ -27,11 +27,12 @@ if isWindows():
 else:
     CLASS_PATH = ("%s/lib/*:.") % (DATAX_HOME)
 LOGBACK_FILE = ("%s/conf/logback.xml") % (DATAX_HOME)
-DEFAULT_JVM = "-Xms1g -Xmx1g -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=%s/log" % (DATAX_HOME)
+DEFAULT_JVM = "-Xms12g -Xmx12g -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=%s/log" % (DATAX_HOME)
 DEFAULT_PROPERTY_CONF = "-Dfile.encoding=UTF-8 -Dlogback.statusListenerClass=ch.qos.logback.core.status.NopStatusListener -Djava.security.egd=file:///dev/urandom -Ddatax.home=%s -Dlogback.configurationFile=%s" % (
     DATAX_HOME, LOGBACK_FILE)
-ENGINE_COMMAND = "java -server ${jvm} %s -classpath %s  ${params} com.alibaba.datax.core.Engine -mode ${mode} -jobid ${jobid} -job ${job}" % (
-    DEFAULT_PROPERTY_CONF, CLASS_PATH)
+# ENGINE_COMMAND = "java -server ${jvm} %s -classpath %s  ${params} com.alibaba.datax.core.Engine -mode ${mode} -jobid ${jobid} -job ${job}" % (
+#     DEFAULT_PROPERTY_CONF, CLASS_PATH)
+ENGINE_COMMAND = "java -server ${jvm} %s -classpath %s  ${params} com.alibaba.datax.core.Engine -jp ${jp}" % (DEFAULT_PROPERTY_CONF, CLASS_PATH)
 REMOTE_DEBUG_CONFIG = "-Xdebug -Xrunjdwp:transport=dt_socket,server=y,address=9999"
 
 RET_STATE = {
@@ -97,6 +98,8 @@ def getOptionParser():
     prodEnvOptionGroup.add_option("-w", "--writer", metavar="<parameter used in view job config[writer] template>",
                                   action="store", dest="writer",type="string",
                                   help='View job config[writer] template, eg: mysqlwriter,streamwriter')
+    prodEnvOptionGroup.add_option("--jp", metavar="<jsonpath>",dest="jp",action="store", default="/xxx/yy",help="xxx")
+
     parser.add_option_group(prodEnvOptionGroup)
 
     devEnvOptionGroup = OptionGroup(parser, "Develop/Debug Options",
@@ -193,6 +196,7 @@ def buildStartCommand(options, args):
     commandMap["jvm"] = tempJVMCommand
     commandMap["params"] = jobParams
     commandMap["job"] = jobResource
+    commandMap["jp"] = options.jp
 
     return Template(ENGINE_COMMAND).substitute(**commandMap)
 
